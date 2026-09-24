@@ -1,3 +1,4 @@
+import process from "node:process";
 import { Buffer } from "node:buffer";
 import { Hono } from "hono";
 import { tokenStore } from "./token-store.ts";
@@ -42,7 +43,7 @@ class OAuthStore {
   private kv: Awaited<ReturnType<typeof openKv>> | null = null;
 
   async init() {
-    this.kv = await openKv();
+    this.kv = await openKv(process.env.KV_PATH);
   }
 
   async storeSession(sessionId: string, session: OAuthSession): Promise<void> {

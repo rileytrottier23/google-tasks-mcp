@@ -1,10 +1,11 @@
+import process from "node:process";
 import { openKv } from "@deno/kv";
 import { Context, Next } from "hono";
 
 let kv: Awaited<ReturnType<typeof openKv>> | null = null;
 
 export async function initRateLimiter() {
-  kv = await openKv();
+  kv = await openKv(process.env.KV_PATH);
 }
 
 interface RateLimitConfig {

@@ -21,6 +21,13 @@ setOAuthConfig(oauthConfig);
 
 const app = createApp({ oauthConfig });
 
+// Behind a TLS-terminating proxy (e.g. Railway) requests arrive as http://,
+// so honor X-Forwarded-Proto to keep the advertised OAuth URLs on https://.
 export default {
-  fetch: app.fetch,
+  fetch: (req: Request) => {
+    if (req.headers.get("x-forwarded-proto") === "https" && req.url.startsWith("http://")) {
+      req = new Request("https://" + req.url.slice("http://".length), req);
+    }
+    return app.fetch(req);
+  },
 };
