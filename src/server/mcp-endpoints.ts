@@ -7,6 +7,17 @@ import { createLogger } from "../utils/logger.ts";
 
 const logger = createLogger({ component: "mcp-endpoints" });
 
+/**
+ * True when the POST body contains at least one JSON-RPC request (a message
+ * with both `method` and `id`). Notifications and responses never get a reply.
+ */
+function expectsResponse(body: unknown): boolean {
+  const messages = Array.isArray(body) ? body : [body];
+  return messages.some((m) =>
+    typeof m === "object" && m !== null && "method" in m && "id" in m
+  );
+}
+
 export function handleMcpGet(c: Context) {
   const { readable, writable } = new TransformStream();
   const writer = writable.getWriter();
@@ -45,6 +56,15 @@ export async function handleMcpPost(c: Context) {
       error: "invalid_request",
       error_description: "Request body is not valid JSON",
     }, 400);
+  }
+
+  // Streamable HTTP spec: a POST carrying only notifications or responses
+  // must be acknowledged with 202 Accepted and no body. The server is
+  // stateless, so there is nothing to process for these (e.g.
+  // notifications/initialized). Opening an SSE stream here instead leaves the
+  // client waiting for a reply that never comes.
+  if (!expectsResponse(message)) {
+    return c.body(null, 202);
   }
 
   const { readable, writable } = new TransformStream();
@@ -108,9 +128,9 @@ export async function handleMcpPost(c: Context) {
 
       // The stream is normally closed as soon as the response is written
       // (see writeSSE in attachStream). This timer is only a safety backstop
-      // for messages that never produce a response (e.g. notifications), so it
-      // must be well above the slowest expected tool round-trip — a short
-      // cutoff here would truncate any response slower than the timeout.
+      // for requests that never produce a response, so it must be well above
+      // the slowest expected tool round-trip — a short cutoff here would
+      // truncate any response slower than the timeout.
       setTimeout(() => {
         closeStream();
       }, 30000);
