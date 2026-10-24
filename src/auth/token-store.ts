@@ -42,11 +42,18 @@ class TokenStore {
       return null;
     }
 
-    return {
-      googleAccessToken: decrypt(result.value.encryptedAccessToken),
-      googleRefreshToken: decrypt(result.value.encryptedRefreshToken),
-      expiresAt: result.value.expiresAt,
-    };
+    try {
+      return {
+        googleAccessToken: decrypt(result.value.encryptedAccessToken),
+        googleRefreshToken: decrypt(result.value.encryptedRefreshToken),
+        expiresAt: result.value.expiresAt,
+      };
+    } catch {
+      // Stored under a previous ENCRYPTION_SECRET (e.g. after rotating it).
+      // Drop it so the client gets a 401 and signs in again.
+      await this.kv.delete(["tokens", mcpToken]);
+      return null;
+    }
   }
 
   async isValid(mcpToken: string): Promise<boolean> {
