@@ -1,6 +1,6 @@
 import process from "node:process";
 import { openKv } from "@deno/kv";
-import { encrypt, decrypt } from "../utils/encryption.ts";
+import { encrypt, decryptWithRotation } from "../utils/encryption.ts";
 
 export interface TokenData {
   googleAccessToken: string;
@@ -42,18 +42,30 @@ class TokenStore {
       return null;
     }
 
+    let tokens: TokenData;
+    let usedPrevious: boolean;
     try {
-      return {
-        googleAccessToken: decrypt(result.value.encryptedAccessToken),
-        googleRefreshToken: decrypt(result.value.encryptedRefreshToken),
+      const access = decryptWithRotation(result.value.encryptedAccessToken);
+      const refresh = decryptWithRotation(result.value.encryptedRefreshToken);
+      tokens = {
+        googleAccessToken: access.text,
+        googleRefreshToken: refresh.text,
         expiresAt: result.value.expiresAt,
       };
+      usedPrevious = access.usedPrevious || refresh.usedPrevious;
     } catch {
-      // Stored under a previous ENCRYPTION_SECRET (e.g. after rotating it).
-      // Drop it so the client gets a 401 and signs in again.
+      // Stored under a secret that is neither ENCRYPTION_SECRET nor
+      // ENCRYPTION_SECRET_PREVIOUS. Drop it so the client gets a 401 and
+      // signs in again.
       await this.kv.delete(["tokens", mcpToken]);
       return null;
     }
+
+    // Read with the old secret during a rotation: re-save under the new one.
+    if (usedPrevious) {
+      await this.storeTokens(mcpToken, tokens);
+    }
+    return tokens;
   }
 
   async isValid(mcpToken: string): Promise<boolean> {
