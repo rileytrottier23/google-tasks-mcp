@@ -61,7 +61,11 @@ server.registerTool("tool_name", {
 ### Environment Variables
 
 Required: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`, `ENCRYPTION_SECRET`
-Optional: `PORT` (default 3000), `LOG_LEVEL` (default info), `ALLOWED_ORIGINS` (comma-separated)
+Optional: `PORT` (default 3000), `LOG_LEVEL` (default info), `ALLOWED_ORIGINS` (comma-separated), `ENCRYPTION_SECRET_PREVIOUS` (old secret during a rotation; see below)
+
+### Rotating ENCRYPTION_SECRET
+
+Set `ENCRYPTION_SECRET_PREVIOUS` to the old value and `ENCRYPTION_SECRET` to the new one. Tokens saved under the old secret are still accepted and re-saved under the new one the next time they are read. Remove `ENCRYPTION_SECRET_PREVIOUS` after 30 days (the token TTL). Without it, tokens under an unknown secret are deleted and the client gets a 401 and signs in again.
 
 ## Conventions
 
