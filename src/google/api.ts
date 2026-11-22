@@ -52,7 +52,10 @@ async function makeGoogleRequest(
     throw new Error(`Google API error: ${response.status} - ${error}`);
   }
 
-  return response.json();
+  // Deletes and clear return 204 with an empty body; parsing it would throw
+  // even though the request succeeded.
+  const body = await response.text();
+  return body ? JSON.parse(body) : null;
 }
 
 export function listTaskLists(mcpToken: string, maxResults?: number, pageToken?: string) {
